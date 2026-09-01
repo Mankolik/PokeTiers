@@ -1,7 +1,8 @@
 # PokéTiers
 
 Rate every Pokémon from SS to F and build a complete National Pokédex tier list.
-https://mankolik.github.io/PokeTiers/
+
+**[Open PokéTiers](https://mankolik.github.io/PokeTiers/)**
 
 ## Features
 
@@ -9,6 +10,7 @@ https://mankolik.github.io/PokeTiers/
 - Pokémon sprite, Pokédex number, and type information while rating
 - SS, S, A, B, C, D, and F tiers
 - Autosaved browser progress, keyboard controls, skipping, and editing
+- Text import for moving an existing list between browsers or deployments
 - A grouped final list that can be copied or downloaded as text
 
 ## Run locally

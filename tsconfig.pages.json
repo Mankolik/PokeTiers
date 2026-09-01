@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "exclude": [
+    "node_modules",
+    ".sites-runtime",
+    "build",
+    "db",
+    "dist",
+    "drizzle.config.ts",
+    "examples",
+    "worker"
+  ]
+}

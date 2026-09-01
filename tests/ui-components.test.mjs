@@ -83,3 +83,22 @@ test("renders sidebar skeletons deterministically", async () => {
   assert.equal(first, second);
   assert.match(first, /--skeleton-width:70%/);
 });
+
+test("imports PokéTiers text exports by tier and Pokédex number", async () => {
+  const { parseTierList } = await vite.ssrLoadModule("/app/page.tsx");
+  const result = parseTierList(`
+SS
+#0054 Psyduck, #0069 Bellsprout
+
+S
+#0001 Bulbasaur, #0006 Charizard
+`);
+
+  assert.deepEqual(result.imported, {
+    1: "S",
+    6: "S",
+    54: "SS",
+    69: "SS",
+  });
+  assert.deepEqual(result.invalidIds, []);
+});

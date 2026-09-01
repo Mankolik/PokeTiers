@@ -10,6 +10,7 @@ import {
   Download,
   RotateCcw,
   Sparkles,
+  Upload,
 } from "lucide-react";
 
 import {
@@ -24,8 +25,19 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { POKEMON, spriteUrl } from "@/app/pokemon-data";
 import type { PokemonType } from "@/app/pokemon-data";
 
@@ -82,12 +94,43 @@ function formatTierList(ratings: Ratings) {
   }).join("\n\n");
 }
 
+export function parseTierList(text: string) {
+  const imported: Ratings = {};
+  const invalidIds = new Set<number>();
+  let activeTier: Tier | null = null;
+
+  text
+    .replace(/\r/g, "")
+    .split("\n")
+    .forEach((line) => {
+      const trimmed = line.trim();
+      const heading = trimmed.match(/^(?:#{1,3}\s*)?(SS|S|A|B|C|D|F)\s*:?\s*$/i);
+      if (heading) {
+        activeTier = heading[1].toUpperCase() as Tier;
+        return;
+      }
+      if (!activeTier) return;
+
+      for (const match of line.matchAll(/#(\d{1,4})\b/g)) {
+        const id = Number(match[1]);
+        if (id >= 1 && id <= POKEMON.length) imported[id] = activeTier;
+        else invalidIds.add(id);
+      }
+    });
+
+  return { imported, invalidIds: [...invalidIds] };
+}
+
 export default function Home() {
   const [ratings, setRatings] = useState<Ratings>({});
   const [currentIndex, setCurrentIndex] = useState(0);
   const [activeTab, setActiveTab] = useState("rate");
   const [ready, setReady] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importText, setImportText] = useState("");
+  const [importError, setImportError] = useState("");
+  const [importNotice, setImportNotice] = useState("");
 
   const current = POKEMON[currentIndex];
   const ratedCount = Object.keys(ratings).length;
@@ -202,6 +245,30 @@ export default function Home() {
     URL.revokeObjectURL(url);
   };
 
+  const importTierList = () => {
+    const { imported, invalidIds } = parseTierList(importText);
+    const importedCount = Object.keys(imported).length;
+    if (!importedCount) {
+      setImportError("I couldn’t find any ratings. Keep each tier heading on its own line and use Pokédex numbers such as #0054.");
+      return;
+    }
+
+    const nextRatings = { ...ratings, ...imported };
+    const firstUnrated = POKEMON.findIndex((pokemon) => !nextRatings[pokemon.id]);
+    setRatings(nextRatings);
+    setCurrentIndex(firstUnrated === -1 ? 0 : firstUnrated);
+    setActiveTab(firstUnrated === -1 ? "results" : "rate");
+    setImportOpen(false);
+    setImportText("");
+    setImportError("");
+    const nextName = firstUnrated === -1
+      ? "Your list is complete."
+      : `Next up: #${String(POKEMON[firstUnrated].id).padStart(4, "0")} ${POKEMON[firstUnrated].name}.`;
+    const invalidNote = invalidIds.length ? ` ${invalidIds.length} invalid number${invalidIds.length === 1 ? " was" : "s were"} ignored.` : "";
+    setImportNotice(`${importedCount.toLocaleString()} ratings imported. ${nextName}${invalidNote}`);
+    window.setTimeout(() => setImportNotice(""), 6000);
+  };
+
   const editPokemon = (id: number) => {
     const index = POKEMON.findIndex((pokemon) => pokemon.id === id);
     if (index >= 0) {
@@ -239,6 +306,53 @@ export default function Home() {
               </div>
               <Progress value={progress} aria-label={`${ratedCount} of ${POKEMON.length} rated`} />
             </div>
+            <Dialog open={importOpen} onOpenChange={(open) => {
+              setImportOpen(open);
+              if (!open) setImportError("");
+            }}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="hidden sm:inline-flex">
+                  <Upload /> Import list
+                </Button>
+              </DialogTrigger>
+              <DialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="sm:hidden" aria-label="Import tier list">
+                  <Upload />
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Import a tier list</DialogTitle>
+                  <DialogDescription>
+                    Paste a list in the same format PokéTiers exports. Imported ratings replace matching Pokémon and leave your other ratings untouched.
+                  </DialogDescription>
+                </DialogHeader>
+                <Textarea
+                  value={importText}
+                  onChange={(event) => {
+                    setImportText(event.target.value);
+                    setImportError("");
+                  }}
+                  className="min-h-64 resize-y font-mono text-sm"
+                  placeholder={"SS\n#0054 Psyduck, #0069 Bellsprout\n\nS\n#0001 Bulbasaur, #0006 Charizard"}
+                  aria-invalid={Boolean(importError)}
+                  aria-describedby={importError ? "import-error" : undefined}
+                />
+                {importError && (
+                  <p id="import-error" role="alert" className="text-sm font-medium text-destructive">
+                    {importError}
+                  </p>
+                )}
+                <DialogFooter>
+                  <DialogClose asChild>
+                    <Button variant="outline">Cancel</Button>
+                  </DialogClose>
+                  <Button onClick={importTierList} disabled={!importText.trim()}>
+                    <Upload /> Import and continue
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="ghost" size="icon" aria-label="Reset all ratings">
@@ -264,6 +378,12 @@ export default function Home() {
         </header>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
+          {importNotice && (
+            <div role="status" className="mb-4 rounded-xl border border-emerald-300/50 bg-emerald-400/15 px-4 py-3 text-sm font-semibold text-emerald-100">
+              <Check className="mr-2 inline size-4" aria-hidden="true" />
+              {importNotice}
+            </div>
+          )}
           <div className="mb-4 flex items-center justify-between gap-3">
             <TabsList className="h-11 rounded-xl bg-white/10 p-1" aria-label="App sections">
               <TabsTrigger value="rate" className="h-9 rounded-lg px-4 text-white/65 data-[state=active]:bg-white data-[state=active]:text-slate-950">
