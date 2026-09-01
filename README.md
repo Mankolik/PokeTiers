@@ -1,7 +1,7 @@
 # PokéTiers
 
 Rate every Pokémon from SS to F and build a complete National Pokédex tier list.
-https://mankolik.github.io/Profile-Card-Maker/
+https://mankolik.github.io/PokeTiers/
 
 ## Features
 
