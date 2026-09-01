@@ -131,6 +131,7 @@ export default function Home() {
   const [importText, setImportText] = useState("");
   const [importError, setImportError] = useState("");
   const [importNotice, setImportNotice] = useState("");
+  const [clipboardBusy, setClipboardBusy] = useState(false);
 
   const current = POKEMON[currentIndex];
   const ratedCount = Object.keys(ratings).length;
@@ -245,12 +246,12 @@ export default function Home() {
     URL.revokeObjectURL(url);
   };
 
-  const importTierList = () => {
-    const { imported, invalidIds } = parseTierList(importText);
+  const applyImportedText = (text: string) => {
+    const { imported, invalidIds } = parseTierList(text);
     const importedCount = Object.keys(imported).length;
     if (!importedCount) {
       setImportError("I couldn’t find any ratings. Keep each tier heading on its own line and use Pokédex numbers such as #0054.");
-      return;
+      return false;
     }
 
     const nextRatings = { ...ratings, ...imported };
@@ -267,6 +268,32 @@ export default function Home() {
     const invalidNote = invalidIds.length ? ` ${invalidIds.length} invalid number${invalidIds.length === 1 ? " was" : "s were"} ignored.` : "";
     setImportNotice(`${importedCount.toLocaleString()} ratings imported. ${nextName}${invalidNote}`);
     window.setTimeout(() => setImportNotice(""), 6000);
+    return true;
+  };
+
+  const importTierList = () => {
+    applyImportedText(importText);
+  };
+
+  const importFromClipboard = async () => {
+    setClipboardBusy(true);
+    setImportError("");
+
+    try {
+      if (!navigator.clipboard?.readText) {
+        throw new Error("Clipboard reading is unavailable");
+      }
+      const text = await navigator.clipboard.readText();
+      if (!text.trim()) {
+        setImportError("Your clipboard is empty. Copy the tier list, then try again.");
+        return;
+      }
+      applyImportedText(text);
+    } catch {
+      setImportError("Clipboard access was blocked. Allow clipboard access, or paste into the box below instead.");
+    } finally {
+      setClipboardBusy(false);
+    }
   };
 
   const editPokemon = (id: number) => {
@@ -324,16 +351,30 @@ export default function Home() {
                 <DialogHeader>
                   <DialogTitle>Import a tier list</DialogTitle>
                   <DialogDescription>
-                    Paste a list in the same format PokéTiers exports. Imported ratings replace matching Pokémon and leave your other ratings untouched.
+                    Copy your full list, then import it straight from the clipboard. Imported ratings replace matching Pokémon and leave your other ratings untouched.
                   </DialogDescription>
                 </DialogHeader>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={importFromClipboard}
+                  disabled={clipboardBusy}
+                >
+                  <Clipboard />
+                  {clipboardBusy ? "Reading clipboard…" : "Import from clipboard"}
+                </Button>
+                <div className="flex items-center gap-3 text-xs font-bold uppercase tracking-[0.15em] text-muted-foreground" aria-hidden="true">
+                  <span className="h-px flex-1 bg-border" />
+                  or paste manually
+                  <span className="h-px flex-1 bg-border" />
+                </div>
                 <Textarea
                   value={importText}
                   onChange={(event) => {
                     setImportText(event.target.value);
                     setImportError("");
                   }}
-                  className="min-h-64 resize-y font-mono text-sm"
+                  className="import-textarea resize-none font-mono text-sm"
                   placeholder={"SS\n#0054 Psyduck, #0069 Bellsprout\n\nS\n#0001 Bulbasaur, #0006 Charizard"}
                   aria-invalid={Boolean(importError)}
                   aria-describedby={importError ? "import-error" : undefined}

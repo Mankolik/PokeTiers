@@ -380,6 +380,15 @@ button {
   font-weight: 800;
 }
 
+.import-textarea {
+  field-sizing: fixed !important;
+  height: min(22rem, 42vh);
+  min-height: 10rem;
+  max-height: 42vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 @keyframes sprite-in {
   from {
     opacity: 0;
